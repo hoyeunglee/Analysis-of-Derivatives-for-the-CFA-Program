@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Derivatives tools (Analysis of Derivatives for the CFA Program)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#f8f9fb; --card:#ffffff; --border:#e5e7eb; --text:#111827; --muted:#6b7280; --accent:#2563eb; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; background: var(--bg); color: var(--text); }
+    h1 { margin: 0 0 8px; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .grid { display: grid; grid-template-columns: 260px 1fr; gap: 24px; }
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .sidebar .tool { display: block; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px; border: 1px solid var(--border); text-decoration: none; color: var(--text); background:#fff; }
+    .sidebar .tool.active { border-color: var(--accent); background: #eef2ff; }
+    .row { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 12px; margin: 12px 0; }
+    label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+    input, select, button { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; }
+    button { background: var(--accent); color: #fff; border: none; cursor: pointer; }
+    button.secondary { background: #374151; }
+    .out { background: #fafafa; border-radius: 8px; padding: 8px; font-family: ui-monospace, Menlo, Consolas, monospace; overflow:auto; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .section-title { margin: 12px 0 6px; font-weight: 700; }
+    .small { font-size: 12px; color: var(--muted); }
+    .warn { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>Derivatives tools</h1>
+  <div class="muted">Inspired by “Analysis of Derivatives for the CFA Program”: practical calculators for options, futures, forwards, FRAs, swaps, parity, Greeks, hedging, and term structure.</div>
+
+  <div class="grid">
+    <div class="panel sidebar">
+      <a class="tool active" href="#" data-tool="blackscholes">Black–Scholes options & Greeks</a>
+      <a class="tool" href="#" data-tool="binomial">Binomial option model</a>
+      <a class="tool" href="#" data-tool="parity">Put–call parity & synthetic positions</a>
+      <a class="tool" href="#" data-tool="deltahedge">Delta hedging & hedge ratio</a>
+      <a class="tool" href="#" data-tool="futurespricing">Futures & cost-of-carry</a>
+      <a class="tool" href="#" data-tool="forwardpricing">Forward pricing & prepaid forwards</a>
+      <a class="tool" href="#" data-tool="fra">Forward rate agreement (FRA)</a>
+      <a class="tool" href="#" data-tool="swaps">Plain-vanilla interest rate swaps</a>
+      <a class="tool" href="#" data-tool="termstructure">Spot/forward curve bootstrapping</a>
+      <a class="tool" href="#" data-tool="impliedvol">Implied volatility solver</a>
+      <a class="tool" href="#" data-tool="riskneutral">Risk-neutral valuation (discrete)</a>
+    </div>
+
+    <div class="panel" id="content">
+
+      <!-- Black-Scholes -->
+      <div class="toolview" id="blackscholes">
+        <h2>Black–Scholes options & Greeks</h2>
+        <div class="row">
+          <div><label>Underlying price S</label><input id="bs_S" type="number" step="0.0001" value="100"></div>
+          <div><label>Strike K</label><input id="bs_K" type="number" step="0.0001" value="100"></div>
+          <div><label>Risk-free r (annual, dec.)</label><input id="bs_r" type="number" step="0.0000001" value="0.03"></div>
+          <div><label>Dividend yield q (dec.)</label><input id="bs_q" type="number" step="0.0000001" value="0.00"></div>
+          <div><label>Volatility σ (dec.)</label><input id="bs_sigma" type="number" step="0.0000001" value="0.20"></div>
+          <div><label>Time to maturity T (years)</label><input id="bs_T" type="number" step="0.0001" value="0.5"></div>
+        </div>
+        <div class="grid2">
+          <button id="bs_calc">Calculate</button>
+          <button class="secondary" id="bs_clear">Clear</button>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="out" id="bs_out"></div>
+        <div class="small">European calls/puts; Greeks (Δ, Γ, Θ, ϑ for div yield, Vega) use continuous compounding with carry q.</div>
+      </div>
+
+      <!-- Binomial -->
+      <div class="toolview" id="binomial" style="display:none;">
+        <h2>Binomial option model</h2>
+        <div class="row">
+          <div><label>Underlying price S0</label><input id="bn_S0" type="number" value="100"></div>
+          <div><label>Strike K</label><input id="bn_K" type="number" value="100"></div>
+          <div><label>Up factor u</label><input id="bn_u" type="number" step="0.0001" value="1.1"></div>
+          <div><label>Down factor d</label><input id="bn_d" type="number" step="0.0001" value="0.9"></div>
+          <div><label>Risk-free r (per step)</label><input id="bn_r" type="number" step="0.0000001" value="0.01"></div>
+          <div><label>Steps N</label><input id="bn_N" type="number" value="3"></div>
+          <div><label>Dividend yield q (per step)</label><input id="bn_q" type="number" step="0.0000001" value="0"></div>
+          <div><label>Option type</label>
+            <select id="bn_type"><option value="call">Call</option><option value="put">Put</option></select>
+          </div>
+          <div><label>Exercise style</label>
+            <select id="bn_style"><option value="euro">European</option><option value="amer">American</option></select>
+          </div>
+        </div>
+        <div class="grid2">
+          <button id="bn_calc">Price</button>
+          <button class="secondary" id="bn_clear">Clear</button>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="out" id="bn_out"></div>
+        <div class="small">Risk-neutral prob: p = (e^{(r−q)} − d) / (u − d). Backward induction; American uses early-exercise checks.</div>
+      </div>
+
+      <!-- Parity -->
+      <div class="toolview" id="parity" style="display:none;">
+        <h2>Put–call parity & synthetic positions</h2>
+        <div class="row">
+          <div><label>Call price C</label><input id="pc_C" type="number" value="10"></div>
+          <div><label>Put price P</label><input id="pc_P" type="number" value="9"></div>
+          <div><label>Underlying price S</label><input id="pc_S" type="number" value="100"></div>
+          <div><label>Strike K</label><input id="pc_K" type="number" value="100"></div>
+          <div><label>Risk-free r (annual, dec.)</label><input id="pc_r" type="number" step="0.0000001" value="0.03"></div>
+          <div><label>Dividend yield q (dec.)</label><input id="pc_q" type="number" step="0.0000001" value="0.00"></div>
+          <div><label>Time to maturity T (years)</label><input id="pc_T" type="number" step="0.0001" value="0.5"></div>
+        </div>
+        <div class="grid2">
+          <button id="pc_calc">Check parity</button>
+          <button class="secondary" id="pc_clear">Clear</button>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="out" id="pc_out"></div>
+        <div class="small">C − P ≈ S·e^{−qT} − K·e^{−rT}. Reports mispricing and synthetic forward price F₀ = S·e^{(r−q)T}.</div>
+      </div>
+
+      <!-- Delta hedge -->
+      <div class="toolview" id="deltahedge" style="display:none;">
+        <h2>Delta hedging & hedge ratio</h2>
+        <div class="row">
+          <div><label>Option delta Δ</label><input id="dh_delta" type="number" step="0.0001" value="0.6"></div>
+          <div><label>Contracts (options)</label><input id="dh_contracts" type="number" value="10"></div>
+          <div><label>Contract size (shares/contract)</label><input id="dh_size" type="number" value="100"></div>
+          <div><label>Underlying price S</label><input id="dh_S" type="number" value="100"></div>
+        </div>
+        <div class="grid2">
+          <button id="dh_calc">Compute hedge</button>
+          <button class="secondary" id="dh_clear">Clear</button>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="out" id="dh_out"></div>
+        <div class="small">Shares to hedge ≈ Δ × contracts × contract size (short for calls, long for puts depending on exposure).</div>
+      </div>
+
+      <!-- Futures pricing -->
+      <div class="toolview" id="futurespricing" style="display:none;">
+        <h2>Futures & cost-of-carry</h2>
+        <div class="row">
+          <div><label>Spot S0</label><input id="fp_S0" type="number" value="100"></div>
+          <div><label>Risk-free r (annual, dec.)</label><input id="fp_r" type="number" step="0.0000001" value="0.03"></div>
+          <div><label>Storage/conv carry c (annual, dec.)</label><input id="fp_c" type="number" step="0.0000001" value="0.00"></div>
+          <div><label>Dividend yield q (annual, dec.)</label><input id="fp_q" type="number" step="0.0000001" value="0.00"></div>
+          <div><label>Time T (years)</label><input id="fp_T" type="number" step="0.0001" value="0.5"></div>
+        </div>
+        <div class="grid2">
+          <button id="fp_calc">Price futures</button>
+          <button class="secondary" id="fp_clear">Clear</button>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="out" id="fp_out"></div>
+        <div class="small">Cost-of-carry: F₀ = S₀ · e^{(r + c − q)T}. Also reports fair basis and prepaid forward if q>0.</div>
+      </div>
+
+      <!-- Forward pricing -->
+      <div class="toolview" id="forwardpricing" style="display:none;">
+        <h2>Forward pricing & prepaid forwards</h2>
+        <div class="row">
+          <div><label>Spot S0</label><input id="fw_S0" type="number" value="100"></div>
+          <div><label>Risk-free r (annual, dec.)</label><input id="fw_r" type="number" step="0.0000001" value="0.03"></div>
+          <div><label>Discrete dividends (sum PV)</label><input id="fw_divPV" type="number" step="0.0001" value="0.00"></div>
+          <div><label>Time T (years)</label><input id="fw_T" type="number" step="0.0001" value="0.5"></div>
+        </div>
+        <div class="grid2">
+          <button id="fw_calc">Price forward</button>
+          <button class="secondary" id="fw_clear">Clear</button>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="out" id="fw_out"></div>
+        <div class="small">Forward price: F₀ = (S₀ − PV(div)) · e^{rT}. Prepaid forward: F₀^prepaid = S₀ − PV(div).</div>
+      </div>
+
+      <!-- FRA -->
+      <div class="toolview" id="fra" style="display:none;">
+        <h2>Forward rate agreement (FRA)</h2>
+        <div class="row">
+          <div><label>Notional N</label><input id="fra_N" type="number" value="1_000_000"></div>
+          <div><label>Contract rate R_K (dec.)</label><input id="fra_RK" type="number" step="0.0000001" value="0.04"></div>
+          <div><label>Reference rate R_M (dec.)</label><input id="fra_RM" type="number" step="0.0000001" value="0.035"></div>
+          <div><label>Days in underlying period</label><input id="fra_days" type="number" value="90"></div>
+          <div><label>Day count base</label><input id="fra_base" type="number" value="360"></div>
+          <div><label>Discount rate (settlement) r (dec.)</label><input id="fra_r" type="number" step="0.0000001" value="0.035"></div>
+        </div>
+        <div class="grid2">
+          <button id="fra_calc">Value FRA</button>
+          <button class="secondary" id="fra_clear">Clear</button>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="out" id="fra_out"></div>
+        <div class="small">Payoff at settlement: N · (R_M − R_K) · (days/base). Discount back: divide by (1 + r · days/base).</div>
+      </div>
+
+      <!-- Swaps -->
+      <div class="toolview" id="swaps" style="display:none;">
+        <h2>Plain-vanilla interest rate swaps</h2>
+        <div class="row">
+          <div><label>Notional N</label><input id="sw_N" type="number" value="10_000_000"></div>
+          <div><label>Fixed rate R_fixed (annual, dec.)</label><input id="sw_fixed" type="number" step="0.0000001" value="0.03"></div>
+          <div><label>Float rate today R_float (dec.)</label><input id="sw_float" type="number" step="0.0000001" value="0.028"></div>
+          <div><label>Payments per year m</label><input id="sw_m" type="number" value="2"></div>
+          <div><label>Tenor years</label><input id="sw_T" type="number" value="3"></div>
+          <div><label>Discount rate curve (flat) y (dec.)</label><input id="sw_y" type="number" step="0.0000001" value="0.029"></div>
+        </div>
+        <div class="grid2">
+          <button id="sw_calc">Value swap</button>
+          <button class="secondary" id="sw_clear">Clear</button>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="out" id="sw_out"></div>
+        <div class="small">Approximation with flat curve: Fixed leg PV ≈ N·(R_fixed/m)·a + N·DF_T; Float leg PV ≈ N (par at reset). Swap value ≈ PV(float) − PV(fixed) for receiver float/payer fixed.</div>
+      </div>
+
+      <!-- Term structure -->
+      <div class="toolview" id="termstructure" style="display:none;">
+        <h2>Spot/forward curve bootstrapping</h2>
+        <div class="row">
+          <div><label>Spot 1y (dec.)</label><input id="ts_s1" type="number" step="0.0000001" value="0.03"></div>
+          <div><label>Spot 2y (dec.)</label><input id="ts_s2" type="number" step="0.0000001" value="0.032"></div>
+          <div><label>Spot 3y (dec.)</label><input id="ts_s3" type="number" step="0.0000001" value="0.034"></div>
+        </div>
+        <div class="grid2">
+          <button id="ts_calc">Bootstrap forwards</button>
+          <button class="secondary" id="ts_clear">Clear</button>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="out" id="ts_out"></div>
+        <div class="small">Annual compounding: f_{1,2} ≈ [(1+s_2)^2 / (1+s_1)] − 1; f_{2,3} ≈ [(1+s_3)^3 / (1+s_2)^2] − 1.</div>
+      </div>
+
+      <!-- Implied vol -->
+      <div class="toolview" id="impliedvol" style="display:none;">
+        <h2>Implied volatility solver</h2>
+        <div class="row">
+          <div><label>Observed option price</label><input id="iv_price" type="number" value="10"></div>
+          <div><label>Underlying S</label><input id="iv_S" type="number" value="100"></div>
+          <div><label>Strike K</label><input id="iv_K" type="number" value="100"></div>
+          <div><label>Risk-free r (dec.)</label><input id="iv_r" type="number" step="0.0000001" value="0.03"></div>
+          <div><label>Dividend yield q (dec.)</label><input id="iv_q" type="number" step="0.0000001" value="0.00"></div>
+          <div><label>Time T (years)</label><input id="iv_T" type="number" step="0.0001" value="0.5"></div>
+          <div><label>Type</label><select id="iv_type"><option value="call">Call</option><option value="put">Put</option></select></div>
+        </div>
+        <div class="grid2">
+          <button id="iv_calc">Solve σ</button>
+          <button class="secondary" id="iv_clear">Clear</button>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="out" id="iv_out"></div>
+        <div class="small">Newton–Raphson using BS vega; robust fallback to bisection if needed.</div>
+      </div>
+
+      <!-- Risk-neutral valuation -->
+      <div class="toolview" id="riskneutral" style="display:none;">
+        <h2>Risk-neutral valuation (discrete)</h2>
+        <div class="row">
+          <div><label>S0</label><input id="rn_S0" type="number" value="100"></div>
+          <div><label>u (up factor)</label><input id="rn_u" type="number" step="0.0001" value="1.1"></div>
+          <div><label>d (down factor)</label><input id="rn_d" type="number" step="0.0001" value="0.9"></div>
+          <div><label>r (per step)</label><input id="rn_r" type="number" step="0.0000001" value="0.01"></div>
+          <div><label>q (div per step)</label><input id="rn_q" type="number" step="0.0000001" value="0"></div>
+          <div><label>N steps</label><input id="rn_N" type="number" value="2"></div>
+          <div><label>Strike K</label><input id="rn_K" type="number" value="100"></div>
+          <div><label>Type</label><select id="rn_type"><option value="call">Call</option><option value="put">Put</option></select></div>
+        </div>
+        <div class="grid2">
+          <button id="rn_calc">Value</button>
+          <button class="secondary" id="rn_clear">Clear</button>
+        </div>
+        <div class="section-title">Results</div>
+        <div class="out" id="rn_out"></div>
+        <div class="small">p = (e^{(r−q)} − d)/(u − d); expected discounted payoff across terminal states.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // UI navigation
+    const links = document.querySelectorAll('.sidebar .tool');
+    const views = document.querySelectorAll('.toolview');
+    links.forEach(l => {
+      l.addEventListener('click', (e) => {
+        e.preventDefault();
+        links.forEach(x => x.classList.remove('active'));
+        l.classList.add('active');
+        const id = l.dataset.tool;
+        views.forEach(v => v.style.display = (v.id === id ? '' : 'none'));
+      });
+    });
+
+    // Math helpers
+    const exp = Math.exp;
+    const ln = Math.log;
+    const sqrt = Math.sqrt;
+    const pow = Math.pow;
+    const max = Math.max;
+    const min = Math.min;
+
+    function N(x){ return 0.5*(1+erf(x/Math.sqrt(2))); }
+    function n_pdf(x){ return (1/Math.sqrt(2*Math.PI))*Math.exp(-0.5*x*x); }
+    function erf(x){ const s = x>=0?1:-1; x=Math.abs(x);
+      const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+      const t=1/(1+p*x);
+      const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+      return s*y;
+    }
+
+    // Black-Scholes
+    document.getElementById('bs_calc').addEventListener('click', () => {
+      const S=+bs_S.value, K=+bs_K.value, r=+bs_r.value, q=+bs_q.value, s=+bs_sigma.value, T=+bs_T.value;
+      const out = document.getElementById('bs_out');
+      const reasons=[];
+      if (S<=0||K<=0||s<=0||T<=0) reasons.push('Inputs must be positive (S,K,σ,T).');
+      if (reasons.length){ out.innerHTML='<span class="warn">'+reasons.join(' ')+'</span>'; return; }
+      const d1=(ln(S/K)+(r-q+0.5*s*s)*T)/(s*sqrt(T));
+      const d2=d1-s*sqrt(T);
+      const df_r=exp(-r*T), df_q=exp(-q*T);
+      const call=S*df_q*N(d1)-K*df_r*N(d2);
+      const put=K*df_r*N(-d2)-S*df_q*N(-d1);
+      const delta_c=df_q*N(d1), delta_p=df_q*(N(d1)-1);
+      const gamma=df_q*n_pdf(d1)/(S*s*sqrt(T));
+      const vega=S*df_q*n_pdf(d1)*sqrt(T);
+      const theta_c=-(S*df_q*n_pdf(d1)*s)/(2*sqrt(T)) - r*K*df_r*N(d2) + q*S*df_q*N(d1);
+      const theta_p=-(S*df_q*n_pdf(d1)*s)/(2*sqrt(T)) + r*K*df_r*N(-d2) - q*S*df_q*N(-d1);
+      out.textContent =
+        `d1=${d1.toFixed(4)}, d2=${d2.toFixed(4)}
+Call=${call.toFixed(4)}, Put=${put.toFixed(4)}
+Δc=${delta_c.toFixed(4)}, Δp=${delta_p.toFixed(4)}, Γ=${gamma.toFixed(6)}
+Vega=${vega.toFixed(4)}, Θc=${theta_c.toFixed(4)}, Θp=${theta_p.toFixed(4)}`;
+    });
+    document.getElementById('bs_clear').addEventListener('click', ()=>{ bs_out.textContent=''; });
+
+    // Binomial model
+    document.getElementById('bn_calc').addEventListener('click', () => {
+      const S0=+bn_S0.value, K=+bn_K.value, u=+bn_u.value, d=+bn_d.value, r=+bn_r.value, N=+bn_N.value, q=+bn_q.value;
+      const type=bn_type.value, style=bn_style.value;
+      const out=document.getElementById('bn_out');
+      const reasons=[];
+      if (S0<=0||K<=0||u<=0||d<=0||N<1) reasons.push('Inputs must be positive and N≥1.');
+      if (u<=d) reasons.push('Up factor u must exceed down factor d.');
+      const p=(exp(r)-exp(q)-d)/(u-d);
+      if (p<0||p>1) reasons.push('Risk-neutral probability outside [0,1]; check u,d,r,q.');
+      if (reasons.length){ out.innerHTML='<span class="warn">'+reasons.join(' ')+'</span>'; return; }
+      // terminal payoffs
+      const vals=new Array(N+1);
+      for(let i=0;i<=N;i++){
+        const ST=S0*Math.pow(u,i)*Math.pow(d,(N-i));
+        vals[i]=(type==='call')? Math.max(ST-K,0) : Math.max(K-ST,0);
+      }
+      // backward induction
+      for(let step=N-1; step>=0; step--){
+        for(let i=0;i<=step;i++){
+          const disc=exp(-(r));
+          const cont=disc*(p*vals[i+1]+(1-p)*vals[i]);
+          if (style==='amer'){
+            const ST_here=S0*Math.pow(u,i)*Math.pow(d,(step-i));
+            const exercise=(type==='call')? Math.max(ST_here-K,0) : Math.max(K-ST_here,0);
+            vals[i]=Math.max(cont, exercise);
+          } else {
+            vals[i]=cont;
+          }
+        }
+      }
+      out.textContent=`Option value=${vals[0].toFixed(4)} (p=${p.toFixed(4)}, style=${style})`;
+    });
+    document.getElementById('bn_clear').addEventListener('click', ()=>{ bn_out.textContent=''; });
+
+    // Put-call parity
+    document.getElementById('pc_calc').addEventListener('click', () => {
+      const C=+pc_C.value, P=+pc_P.value, S=+pc_S.value, K=+pc_K.value, r=+pc_r.value, q=+pc_q.value, T=+pc_T.value;
+      const out=document.getElementById('pc_out');
+      const df_r=exp(-r*T), df_q=exp(-q*T);
+      const lhs=C-P, rhs=S*df_q - K*df_r;
+      const mis=(lhs - rhs);
+      const F=S*exp((r-q)*T);
+      out.textContent=`Parity LHS=C−P=${lhs.toFixed(4)}, RHS=S·e^{−qT}−K·e^{−rT}=${rhs.toFixed(4)}, mispricing=${mis.toFixed(4)}
+Synthetic forward F0=${F.toFixed(4)} (from carry r−q)`;
+    });
+    document.getElementById('pc_clear').addEventListener('click', ()=>{ pc_out.textContent=''; });
+
+    // Delta hedging
+    document.getElementById('dh_calc').addEventListener('click', () => {
+      const delta=+dh_delta.value, contracts=+dh_contracts.value, size=+dh_size.value, S=+dh_S.value;
+      const out=document.getElementById('dh_out');
+      if (size<=0 || contracts<=0) { out.innerHTML='<span class="warn">Contract size and number must be positive.</span>'; return; }
+      const shares=delta*contracts*size;
+      const notional=shares*S;
+      out.textContent=`Hedge shares≈${shares.toFixed(2)}; Notional≈${notional.toFixed(2)}`;
+    });
+    document.getElementById('dh_clear').addEventListener('click', ()=>{ dh_out.textContent=''; });
+
+    // Futures pricing
+    document.getElementById('fp_calc').addEventListener('click', () => {
+      const S0=+fp_S0.value, r=+fp_r.value, c=+fp_c.value, q=+fp_q.value, T=+fp_T.value;
+      const out=document.getElementById('fp_out');
+      if (S0<=0||T<=0) { out.innerHTML='<span class="warn">Spot and time must be positive.</span>'; return; }
+      const F=S0*exp((r+c-q)*T);
+      const basis=F-S0;
+      out.textContent=`F0=${F.toFixed(4)}; Basis=${basis.toFixed(4)}; Carry r+c−q=${(r+c-q).toFixed(4)}`;
+    });
+    document.getElementById('fp_clear').addEventListener('click', ()=>{ fp_out.textContent=''; });
+
+    // Forward pricing
+    document.getElementById('fw_calc').addEventListener('click', () => {
+      const S0=+fw_S0.value, r=+fw_r.value, divPV=+fw_divPV.value, T=+fw_T.value;
+      const out=document.getElementById('fw_out');
+      if (S0<=0||T<=0) { out.innerHTML='<span class="warn">Spot and time must be positive.</span>'; return; }
+      const prepaid=S0 - divPV;
+      const F=prepaid * exp(r*T);
+      out.textContent=`Prepaid forward=${prepaid.toFixed(4)}; Forward price F0=${F.toFixed(4)}`;
+    });
+    document.getElementById('fw_clear').addEventListener('click', ()=>{ fw_out.textContent=''; });
+
+    // FRA
+    document.getElementById('fra_calc').addEventListener('click', () => {
+      const N=+fra_N.value, RK=+fra_RK.value, RM=+fra_RM.value, days=+fra_days.value, base=+fra_base.value, r=+fra_r.value;
+      const out=document.getElementById('fra_out');
+      if (N<=0||base<=0||days<=0) { out.innerHTML='<span class="warn">Notional, base, days must be positive.</span>'; return; }
+      const tau=days/base;
+      const payoff = N * (RM - RK) * tau;
+      const pv = payoff / (1 + r * tau);
+      out.textContent=`FRA payoff=${payoff.toFixed(2)}; PV at settlement=${pv.toFixed(2)} (τ=${tau.toFixed(6)})`;
+    });
+    document.getElementById('fra_clear').addEventListener('click', ()=>{ fra_out.textContent=''; });
+
+    // Swaps (flat curve approximation)
+    document.getElementById('sw_calc').addEventListener('click', () => {
+      const N=+sw_N.value, Rf=+sw_fixed.value, Rl=+sw_float.value, m=+sw_m.value, T=+sw_T.value, y=+sw_y.value;
+      const out=document.getElementById('sw_out');
+      if (N<=0||m<=0||T<=0) { out.innerHTML='<span class="warn">Notional, payments per year, and tenor must be positive.</span>'; return; }
+      const nPayments = Math.round(m*T);
+      // Level annuity PV factor with flat discount y
+      const per = 1/m;
+      const DF = (t)=> exp(-y*t);
+      let ann=0;
+      for(let i=1;i<=nPayments;i++){ ann += DF(i*per); }
+      const pvFixed = N * (Rf/m) * ann + N * DF(T); // include principal exchange approximation
+      const pvFloat = N; // par at reset under flat curve approximation
+      const valueReceiverFloat = pvFloat - pvFixed;
+      // Par swap fixed rate approx: R* = ( (pvFloat - N*DF(T)) * m ) / ann
+      const parR = ( (pvFloat - N*DF(T)) * m ) / (N*ann);
+      out.textContent=`PV fixed≈${pvFixed.toFixed(2)}; PV float≈${pvFloat.toFixed(2)}; Value (receive float, pay fixed)≈${valueReceiverFloat.toFixed(2)}; Par fixed rate≈${parR.toFixed(6)}`;
+    });
+    document.getElementById('sw_clear').addEventListener('click', ()=>{ sw_out.textContent=''; });
+
+    // Term structure bootstrapping
+    document.getElementById('ts_calc').addEventListener('click', () => {
+      const s1=+ts_s1.value, s2=+ts_s2.value, s3=+ts_s3.value;
+      const out=document.getElementById('ts_out');
+      const f12 = ( (1+s2)**2 / (1+s1) ) - 1;
+      const f23 = ( (1+s3)**3 / (1+s2)**2 ) - 1;
+      out.textContent=`f_{1,2}≈${f12.toFixed(6)}; f_{2,3}≈${f23.toFixed(6)}`;
+    });
+    document.getElementById('ts_clear').addEventListener('click', ()=>{ ts_out.textContent=''; });
+
+    // Implied volatility solver (Newton + bisection fallback)
+    document.getElementById('iv_calc').addEventListener('click', () => {
+      const price=+iv_price.value, S=+iv_S.value, K=+iv_K.value, r=+iv_r.value, q=+iv_q.value, T=+iv_T.value, type=iv_type.value;
+      const out=document.getElementById('iv_out');
+      if (price<=0||S<=0||K<=0||T<=0){ out.innerHTML='<span class="warn">Observed price, S, K, and T must be positive.</span>'; return; }
+      function bs_price_sigma(sig){
+        const d1=(ln(S/K)+(r-q+0.5*sig*sig)*T)/(sig*sqrt(T));
+        const d2=d1-sig*sqrt(T);
+        const df_r=exp(-r*T), df_q=exp(-q*T);
+        const c=S*df_q*N(d1)-K*df_r*N(d2);
+        const p=K*df_r*N(-d2)-S*df_q*N(-d1);
+        return type==='call'? c: p;
+      }
+      function bs_vega(sig){
+        const d1=(ln(S/K)+(r-q+0.5*sig*sig)*T)/(sig*sqrt(T));
+        const df_q=exp(-q*T);
+        return S*df_q*n_pdf(d1)*sqrt(T);
+      }
+      // Newton
+      let sig=0.2, ok=false;
+      for(let i=0;i<20;i++){
+        const f=bs_price_sigma(sig)-price;
+        const v=bs_vega(sig);
+        if (Math.abs(f)<1e-6){ ok=true; break; }
+        if (v<1e-12){ break; }
+        sig = sig - f/v;
+        if (sig<=1e-6 || sig>5) { break; }
+      }
+      if (!ok || sig<=1e-6 || sig>5){
+        // bisection
+        let lo=1e-6, hi=5, mid;
+        for(let i=0;i<40;i++){
+          mid=(lo+hi)/2;
+          const fmid=bs_price_sigma(mid)-price;
+          if (Math.abs(fmid)<1e-6){ sig=mid; ok=true; break; }
+          const flo=bs_price_sigma(lo)-price;
+          if (Math.sign(fmid)===Math.sign(flo)) lo=mid; else hi=mid;
+        }
+      }
+      if (!ok){ out.innerHTML='<span class="warn">Implied volatility could not be solved. Check inputs.</span>'; return; }
+      out.textContent=`Implied σ≈${sig.toFixed(6)}`;
+    });
+    document.getElementById('iv_clear').addEventListener('click', ()=>{ iv_out.textContent=''; });
+
+    // Risk-neutral valuation (discrete)
+    document.getElementById('rn_calc').addEventListener('click', () => {
+      const S0=+rn_S0.value, u=+rn_u.value, d=+rn_d.value, r=+rn_r.value, q=+rn_q.value, N=+rn_N.value, K=+rn_K.value, type=rn_type.value;
+      const out=document.getElementById('rn_out');
+      const reasons=[];
+      if (S0<=0||K<=0||u<=0||d<=0||N<1) reasons.push('Inputs must be positive and N≥1.');
+      const p = (exp(r)-exp(q)-d)/(u-d);
+      if (p<0 || p>1) reasons.push('Risk-neutral probability outside [0,1].');
+      if (reasons.length){ out.innerHTML='<span class="warn">'+reasons.join(' ')+'</span>'; return; }
+      let payoff=0;
+      for(let i=0;i<=N;i++){
+        const comb = binomialCoeff(N,i);
+        const ST = S0*Math.pow(u,i)*Math.pow(d,(N-i));
+        const pi = comb*Math.pow(p,i)*Math.pow(1-p,(N-i));
+        const x = (type==='call')? Math.max(ST-K,0) : Math.max(K-ST,0);
+        payoff += pi*x;
+      }
+      const value = exp(-r*N)*payoff;
+      out.textContent=`Risk-neutral value≈${value.toFixed(4)} (p=${p.toFixed(4)})`;
+    });
+    document.getElementById('rn_clear').addEventListener('click', ()=>{ rn_out.textContent=''; });
+
+    function binomialCoeff(n,k){
+      if (k<0||k>n) return 0;
+      if (k===0||k===n) return 1;
+      k = Math.min(k, n-k);
+      let res=1;
+      for(let i=1;i<=k;i++){ res = res*(n-k+i)/i; }
+      return res;
+    }
+  </script>
+</body>
+</html>
